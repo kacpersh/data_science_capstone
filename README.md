@@ -1,7 +1,7 @@
-#Data Science Capstone
+Data Science Capstone
 
-##Automating data preprocessing with Reinforcement Learning for improved video text image detection and recognition
+Automating data preprocessing with Reinforcement Learning for improved video text image detection and recognition
 
-###Kacper Krasowiak and Lekshmi Santhosh
+Kacper Krasowiak and Lekshmi Santhosh
 
-###Harvard University, Fall 2021
+Harvard University, Fall 2021
