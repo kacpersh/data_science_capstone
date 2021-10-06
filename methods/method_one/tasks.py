@@ -40,7 +40,7 @@ def luigi_sample_runner(
     base_read = os.path.join(base_dir, "data/metadata_tmp")
     if os.path.exists(base_output) is False:
         os.mkdir(base_output)
-        os.system("sudo chmod 777 output")
+        os.system("sudo chmod 777" + os.path.join(base_dir, "output"))
     os.mkdir(base_output + "/experiment_" + description)
     sample_class = Sampling(base_read, sample_size)
     method = getattr(sample_class, sampling_method)
