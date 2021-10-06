@@ -6,7 +6,7 @@ from methods.method_one.tasks import PrepareVisualizations
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-bd", "--base_dir", default="/home/kacper_krasowiak/")
-parser.add_argument("-ss", "--sample_size", default=5000)
+parser.add_argument("-ss", "--sample_size", default=5000, type=int)
 parser.add_argument("-sm", "--sampling_method", default="no_filter")
 parser.add_argument("-sf", "--sampling_folder", default=None)
 parser.add_argument("-sft", "--sampling_focus_type", default=None)
