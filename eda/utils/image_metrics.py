@@ -86,3 +86,20 @@ def classify_by_luminance(
         return "Medium"
     elif image_luminance > upper_bound:
         return "Large"
+
+
+def classify_by_resolution(
+    image_resolution: int, lower_bound: int = 200000, upper_bound: int = 270000
+) -> str:
+    """Classifies if an image is of low, medium or high luminance
+    :param float image_resolution: Resolution an image. It is the product of image height and width.
+    :param float lower_bound: Lower bound for resolution. Values below lower bound will be classified as 'Low'.
+    :param float upper_bound: Higher bound for resolution. Values above higher bound will be classified as 'Large'.
+    :returns: A string representing the category to which a particular image resolution value belongs.
+    """
+    if image_resolution <= lower_bound:
+        return "Low"
+    elif lower_bound < image_resolution <= upper_bound:
+        return "Medium"
+    elif image_resolution > upper_bound:
+        return "Large"
