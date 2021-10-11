@@ -103,3 +103,20 @@ def classify_by_resolution(
         return "Medium"
     elif image_resolution > upper_bound:
         return "Large"
+
+
+def classify_by_fontsize(
+    image_total_font_area: int, lower_bound: int = 5, upper_bound: int = 20
+) -> str:
+    """Classifies if an image is of low, medium or high luminance
+    :param float image_total_font_area: Total font area (sum of bounding box areas) per image.
+    :param float lower_bound: Lower bound for font area. Values below lower bound will be classified as 'Low'.
+    :param float upper_bound: Higher bound for font area. Values above higher bound will be classified as 'Large'.
+    :returns: A string representing the category to which a particular image font area value belongs.
+    """
+    if image_total_font_area <= lower_bound:
+        return "Low"
+    elif lower_bound < image_total_font_area <= upper_bound:
+        return "Medium"
+    elif image_total_font_area > upper_bound:
+        return "Large"
