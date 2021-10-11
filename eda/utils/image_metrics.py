@@ -57,7 +57,7 @@ def get_mean_image_brightness(img_path: str) -> float:
     """Calculates average brightness of an image. We convert the image to LAB space, extract the luminance channel and
     then calculate the average luminance  value.
     :param str img_path: path to a file with an image to be processed.
-    :returns: A flaoting value ranging from 0 to 255 representing the average luminance value of the iamge
+    :returns: A floating value ranging from 0 to 255 representing the average luminance value of the iamge
     """
     with Image.open(img_path) as im:
         srgb_profile = ImageCms.createProfile("sRGB")
@@ -69,3 +69,20 @@ def get_mean_image_brightness(img_path: str) -> float:
         l, a, b = lab_representation.split()
         mean_brightness = np.mean(np.array(l.getdata()))
         return mean_brightness
+
+
+def classify_by_luminance(
+    image_luminance: float, lower_bound: float = 60, upper_bound: float = 150
+) -> str:
+    """Classifies if an image is of low, medium or high luminance
+    :param float image_luminance: Luminance value of an image.
+    :param float lower_bound: Lower bound for luminance. Values below lower bound will be classified as 'Low'.
+    :param float upper_bound: Higher bound for luminance. Values above higher bound will be classified as 'Large'.
+    :returns: A string representing the category to which a particular luminance value belongs.
+    """
+    if image_luminance <= lower_bound:
+        return "Low"
+    elif lower_bound < image_luminance <= upper_bound:
+        return "Medium"
+    elif image_luminance > upper_bound:
+        return "Large"
