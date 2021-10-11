@@ -1,7 +1,6 @@
-from PIL import Image
+from PIL import Image, ImageCms
 
 import numpy as np
-from nltk.tokenize import word_tokenize
 
 
 def get_image_entropy_and_size(img_path: str) -> tuple:
@@ -54,10 +53,19 @@ def get_text_area_summary(bounding_box_array: np.ndarray, num_of_words: int) -> 
     return sum(areas), max(areas), min(areas), np.mean(areas)
 
 
-def clean_text_labels(list_of_words: list) -> list:
-    """Removes white spaces, new line, carriage return and other word seperators from a list of text labels.
-    :param list list_of_words: A list with all text labels on a word.
-    :returns: A list of words after removing the white spaces.
+def get_mean_image_brightness(img_path: str) -> float:
+    """Calculates average brightness of an image. We convert the image to LAB space, extract the luminance channel and
+    then calculate the average luminance  value.
+    :param str img_path: path to a file with an image to be processed.
+    :returns: A flaoting value ranging from 0 to 255 representing the average luminance value of the iamge
     """
-    sentence = " ".join(list_of_words)
-    return word_tokenize(sentence)
+    with Image.open(img_path) as im:
+        srgb_profile = ImageCms.createProfile("sRGB")
+        lab_profile = ImageCms.createProfile("LAB")
+        rgb2lab = ImageCms.buildTransformFromOpenProfiles(
+            srgb_profile, lab_profile, "RGB", "LAB"
+        )
+        lab_representation = ImageCms.applyTransform(im, rgb2lab)
+        l, a, b = lab_representation.split()
+        mean_brightness = np.mean(np.array(l.getdata()))
+        return mean_brightness
