@@ -52,3 +52,12 @@ def get_text_area_summary(bounding_box_array: np.ndarray, num_of_words: int) -> 
         area = get_bounding_box_area(x, y)
         areas.append(area)
     return sum(areas), max(areas), min(areas), np.mean(areas)
+
+
+def clean_text_labels(list_of_words: list) -> list:
+    """Removes white spaces, new line, carriage return and other word seperators from a list of text labels.
+    :param list list_of_words: A list with all text labels on a word.
+    :returns: A list of words after removing the white spaces.
+    """
+    sentence = " ".join(list_of_words)
+    return word_tokenize(sentence)
