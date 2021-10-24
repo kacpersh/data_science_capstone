@@ -14,3 +14,16 @@ def calculate_reward(
         return -1 * rl_ecr
     else:
         return high_performance_reward
+
+
+def cumulative_rewards(data: list) -> list:
+    """Calculates a cumulative reward series
+    :param data: a list of rewards collected over a number of episodes
+    :return: a list with a cumulative reward series
+    """
+    cumulative_reward_series = [data[0]]
+    [
+        cumulative_reward_series.append(cumulative_reward_series[-1] + i)
+        for i in data[1:]
+    ]
+    return cumulative_reward_series

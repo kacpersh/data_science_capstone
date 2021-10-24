@@ -2,7 +2,7 @@ import argparse
 from datetime import datetime
 import pytz
 from luigi import build
-from methods.method_one.tasks import PrepareVisualizationsNBandit
+from methods.method_two.tasks import PrepareVisualizationsCBandit
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-bd", "--base_dir", default="/home/kacper_krasowiak/")
@@ -15,7 +15,6 @@ parser.add_argument(
     "--description",
     default=datetime.now(pytz.timezone("Europe/London")).strftime("%d_%m_%Y_%H_%M"),
 )
-parser.add_argument("-w", "--weights", nargs="*", default=[0.2, 0.2, 0.2, 0.2, 0.2])
 parser.add_argument("-e", "--epsilon", default=0.2)
 
 
@@ -28,21 +27,19 @@ def main(args=None):
     :param str sampling_folder: folder number if th Sampling class method requires
     :param str sampling_focus_type: focus type if th Sampling class method requires
     :param str description: description of the experiment
-    :param str weights: a list of action weights
     :param str epsilon: probability bar to select an action different from the optimal one
     :returns: print out the visualizations of the results after training
     """
     args = parser.parse_args()
     build(
         [
-            PrepareVisualizationsNBandit(
+            PrepareVisualizationsCBandit(
                 base_dir=f"{args.base_dir}",
                 sample_size=args.sample_size,
                 sampling_method=f"{args.sampling_method}",
                 sampling_folder=f"{args.sampling_folder}",
                 sampling_focus_type=f"{args.sampling_focus_type}",
                 description=f"{args.description}",
-                weights=args.weights,
                 epsilon=args.epsilon,
             )
         ],
