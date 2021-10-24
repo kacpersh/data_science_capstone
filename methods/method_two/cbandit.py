@@ -1,6 +1,7 @@
 # Adding libraries required for test image preprocessing
 import time
 import pandas as pd
+import numpy as np
 from tqdm import tqdm
 import tensorflow as tf
 from methods.utils.actions import (
@@ -11,18 +12,18 @@ from methods.utils.actions import (
     no_action,
 )
 from methods.utils.other import (
-    generate_action,
+    build_model,
     custom_loss,
-    weights2tensors,
+    generate_action_contextual,
     resize_image,
     env_interaction,
     cumulative_action_count,
 )
 
 
-def nbandit(
+def cbandit(
     data: pd.DataFrame,
-    weights: list = [0.2, 0.2, 0.2, 0.2, 0.2],
+    model: tf.keras.Model = build_model(),
     epsilon: float = 0.2,
     actions: list = [
         scaleup_image,
@@ -33,9 +34,9 @@ def nbandit(
     ],
     optimizer: tf.keras.optimizers.Optimizer = tf.keras.optimizers.SGD(),
 ) -> list:
-    """Returns a training loss series, cumulative reward series, weight series, cumulative action sum series and episode duration series
+    """Returns a total reward and weight per action after the learning loop
     :param data: Pandas dataframe with a training sample
-    :param weights: a list of action weights
+    :param model: a Keras classification model
     :param epsilon: probability bar to select an action different from the optimal one
     :param actions: a list of functions to process the image
     :param optimizer: TensorFlow optimizer to be used in the processes of adjusting the weight
@@ -44,7 +45,6 @@ def nbandit(
     episodes = len(data)
     loss_series = [0]
     reward_series = [0]
-    weights = weights2tensors(weights)
     action_cumulative_count = [[0, 0, 0, 0, 0]]
     duration_series = [0]
 
@@ -53,22 +53,26 @@ def nbandit(
         start = time.time()
 
         image = resize_image(i.dataset_path)
-        action_idx, action = generate_action(actions, weights, epsilon)
+        state = np.expand_dims(image, 0)
+        pred_actions = model(state)
+        action_idx, action = generate_action_contextual(pred_actions, actions, epsilon)
         action_cumulative_sum = cumulative_action_count(
             action_cumulative_count, action_idx
         )
         action_cumulative_count.append(action_cumulative_sum)
         reward = env_interaction(image, i.tokens, action)
         reward_series.append(reward)
-        eval_action = weights[action_idx]
+        eval_action = tf.slice(tf.reshape(pred_actions, -1), [action_idx], [1])
 
         with tf.GradientTape() as tape:
             tape.watch(eval_action)
             loss = custom_loss(eval_action, reward)
 
-        gradient = tape.gradient(loss, weights)
+        gradient = tape.gradient(loss, model.trainable_weights)
         optimizer.apply_gradients(
-            (grad, var) for (grad, var) in zip(gradient, weights) if grad is not None
+            (grad, var)
+            for (grad, var) in zip(gradient, model.trainable_weights)
+            if grad is not None
         )
 
         loss_series.append(float(loss.numpy()))
