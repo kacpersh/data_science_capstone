@@ -1,4 +1,3 @@
-# Adding libraries required for test image preprocessing
 import os
 from luigi import Task
 from luigi import LocalTarget
@@ -24,7 +23,9 @@ class RunCBandit(PassParameters, Task):
 
     def run(self):
         """Runs the Contextual Bandit training and save the results in a specified path"""
-        results = cbandit(data=pd.read_csv(self.input().path), epsilon=self.epsilon)
+        results = cbandit(
+            data=pd.read_csv(self.input().path), epsilon=self.epsilon, lr=self.lr
+        )
         save_pickle(results, self.output().path)
 
 

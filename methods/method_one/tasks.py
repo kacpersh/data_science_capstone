@@ -1,4 +1,3 @@
-# Adding libraries required for test image preprocessing
 import os
 from luigi import Task
 from luigi import LocalTarget
@@ -28,6 +27,7 @@ class RunNBandit(PassParameters, Task):
             data=pd.read_csv(self.input().path),
             weights=self.weights,
             epsilon=self.epsilon,
+            lr=self.lr,
         )
         save_pickle(results, self.output().path)
 
