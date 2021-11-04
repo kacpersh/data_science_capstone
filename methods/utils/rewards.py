@@ -31,7 +31,9 @@ def standardizer(input: [tf.Tensor, np.ndarray]) -> tf.Tensor:
 
 
 # Based on the tutorial from https://www.tensorflow.org/tutorials/reinforcement_learning/actor_critic
-def rewards2returns(rewards: [tf.Tensor, np.ndarray], gamma: float) -> tf.Tensor:
+def rewards2returns(
+    rewards: [tf.Tensor, np.ndarray], gamma: float, standarization: bool = True
+) -> tf.Tensor:
     """Converts a Tensor with rewards to a Tensor with expected returns
     :param rewards: a Tensor with rewards for conversion
     :param gamma: a decaying discount factor, the higher the value the more forward looking the less weight for future values
@@ -46,6 +48,6 @@ def rewards2returns(rewards: [tf.Tensor, np.ndarray], gamma: float) -> tf.Tensor
         discounted_sum = reward + gamma * discounted_sum
         expected_returns.append(discounted_sum)
     expected_returns = [tf.reverse(x, [1]) for x in expected_returns]
-    # Standardization is required to control the loss and gradient
-    expected_returns = standardizer(expected_returns)
+    if standarization is True:
+        expected_returns = standardizer(expected_returns)
     return expected_returns

@@ -3,13 +3,13 @@ from luigi import Task
 from luigi import LocalTarget
 import pandas as pd
 from methods.utils.shared_tasks import PassParameters, PrepareSample
-from methods.method_two.cbandit import cbandit
+from methods.method_four.actor_critic import actor_critic
 from methods.utils.other import save_pickle
-from methods.utils.shared_tasks import PrepareSimpleVisualizations
+from methods.utils.shared_tasks import PrepareComplexVisualizations
 
 
-class RunCBandit(PassParameters, Task):
-    """Luigi task to run the Contextual Bandit training and save the results in a specified path"""
+class RunAgentCritic(PassParameters, Task):
+    """Luigi task to run the Agent-Critic method training and save the results in a specified path"""
 
     def requires(self):
         """Specified required preceding Luigi task"""
@@ -22,16 +22,20 @@ class RunCBandit(PassParameters, Task):
         )
 
     def run(self):
-        """Runs the Contextual Bandit training and save the results in a specified path"""
-        results = cbandit(
-            data=pd.read_csv(self.input().path), epsilon=self.epsilon, lr=self.lr
+        """Runs the the Agent-Critic method training and save the results in a specified path"""
+        results = actor_critic(
+            data=pd.read_csv(self.input().path),
+            epsilon=self.epsilon,
+            max_steps=self.max_steps,
+            gamma=self.gamma,
+            lr=self.lr,
         )
         save_pickle(results, self.output().path)
 
 
-class PrepareVisualizationsCBandit(PrepareSimpleVisualizations):
+class PrepareVisualizationsAgentCritic(PrepareComplexVisualizations):
     """Luigi task to create and save visualizations of the training results"""
 
     def requires(self):
         """Specified required preceding Luigi task"""
-        return RunCBandit(**self.collect_params())
+        return RunAgentCritic(**self.collect_params())
