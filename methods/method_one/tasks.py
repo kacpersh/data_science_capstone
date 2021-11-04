@@ -5,7 +5,7 @@ import pandas as pd
 from methods.utils.shared_tasks import PassParameters, PrepareSample
 from methods.method_one.nbandit import nbandit
 from methods.utils.other import save_pickle
-from methods.utils.shared_tasks import PrepareVisualizations
+from methods.utils.shared_tasks import PrepareSimpleVisualizations
 
 
 class RunNBandit(PassParameters, Task):
@@ -32,7 +32,7 @@ class RunNBandit(PassParameters, Task):
         save_pickle(results, self.output().path)
 
 
-class PrepareVisualizationsNBandit(PrepareVisualizations):
+class PrepareVisualizationsNBandit(PrepareSimpleVisualizations):
     """Luigi task to create and save visualizations of the training results"""
 
     def requires(self):

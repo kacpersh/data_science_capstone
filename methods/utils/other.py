@@ -246,6 +246,7 @@ def build_model(
     kernel: tuple = (3, 3),
     pool_size: tuple = (2, 2),
     no_classes: int = 5,
+    actor_critic: bool = False,
 ) -> tf.keras.Model:
     """Generates a TensorFlow CNN model later used to identify a state in the contextual bandit and policy-based agent
     :param shape: an input shape of a state, in this case an image
@@ -261,10 +262,15 @@ def build_model(
     x = tf.keras.layers.MaxPool2D(pool_size)(x)
     x = tf.keras.layers.Conv2D(200, kernel, activation="relu")(x)
     x = tf.keras.layers.Flatten()(x)
-    x = tf.keras.layers.Dense(200, activation="relu")(x)
-    outputs = tf.keras.layers.Dense(no_classes)(x)
-    model = tf.keras.Model(inputs=inputs, outputs=outputs)
-    return model
+    if actor_critic is True:
+        outputs = tf.keras.layers.Dense(200, activation="relu")(x)
+        model = tf.keras.Model(inputs=inputs, outputs=outputs)
+        return model
+    else:
+        x = tf.keras.layers.Dense(200, activation="relu")(x)
+        outputs = tf.keras.layers.Dense(no_classes)(x)
+        model = tf.keras.Model(inputs=inputs, outputs=outputs)
+        return model
 
 
 def generate_action_contextual(
@@ -333,3 +339,44 @@ def count_action_combinations(array: list, actions: list) -> dict:
         sorted(action_combination_count.items(), key=lambda item: item[1])
     )
     return action_combination_count_sorted
+
+
+def generate_action_ac(
+    actions_logits: tf.Tensor,
+    actions: list,
+    epsilon: float,
+) -> tuple:
+    """Returns a function to process the image, ensures balancing out exploration and exploitation
+    :param actions_logits: an output from the custom Actor-Critic Keras model with action logit probabilities
+    :param actions: a list of functions to process the image
+    :param epsilon: probability bar to select an action different from the optimal one
+    :return: tuple with index of the action and function to process the image
+    """
+    actions_probs = tf.nn.softmax(actions_logits)
+    if tf.random.uniform(shape=[], minval=0.0, maxval=1.0) < epsilon:
+        action_idx = int(tf.random.categorical(actions_logits, 1)[0, 0])
+        actions_probs = actions_probs[0, action_idx]
+        action = actions[action_idx]
+    else:
+        action_idx = tf.argmax(actions_probs, -1)[0]
+        actions_probs = actions_probs[0, action_idx]
+        action = actions[int(action_idx)]
+    return actions_probs, action_idx, action
+
+
+def ac_loss(
+    actions_probs_stack: tf.Tensor, values_stack: tf.Tensor, rewards_stack: tf.Tensor
+) -> tf.Tensor:
+    """Returns a loss for the custom Actor-Critic Keras model
+    :param actions_probs_stack: a Tensor with action probabilities selected by the Actor for each step
+    :param values_stack: a Tensor with values produced by the Critic for each step
+    :param rewards_stack: rewards received for using an action to preprocess an image
+    :return: a loss value
+    """
+    advantage = rewards_stack - values_stack
+    action_log_probs = tf.math.log(actions_probs_stack)
+    actor_loss = -tf.math.reduce_sum(action_log_probs * advantage)
+    huber_loss = tf.keras.losses.Huber(reduction=tf.keras.losses.Reduction.SUM)
+    critic_loss = tf.cast(huber_loss(values_stack, rewards_stack), dtype=tf.float64)
+    loss = actor_loss + critic_loss
+    return loss
