@@ -49,6 +49,11 @@ def cbandit(
     loss_stack = []
     episode_duration = []
 
+    actions_logits_update_batch = []
+    encoded_actions_update_batch = []
+    rewards_update_batch = []
+
+    batch_size = 0
     for i in tqdm(data.itertuples(), total=episodes):
 
         start = time.time()
@@ -59,15 +64,19 @@ def cbandit(
         state = tf.expand_dims(image, 0)
 
         with tf.GradientTape() as tape:
-            actions_logits = tf.cast(standardizer(model(state)), dtype=tf.float64)
+            actions_logits = standardizer(model(state))
+            actions_logits_update_batch.append(tf.squeeze(actions_logits))
             action_idx, action = generate_action_contextual(
                 actions_logits, actions, epsilon
             )
+
             action_count = tf.Variable(
                 tf.zeros(actions_logits.shape[1], dtype=tf.float64)
             )
-            action_count = tf.reshape(action_count[action_idx].assign(1), [1, 5])
+            action_count = action_count[action_idx].assign(1)
+            encoded_actions_update_batch.append(action_count)
             action_count_stack.append(action_count)
+
             running_cumulative_episode_actions_count.append(
                 count_cumulative(
                     action_count_stack,
@@ -78,31 +87,50 @@ def cbandit(
             )
 
             reward = env_interaction(image, i.tokens, action)
+            rewards_update_batch.append(reward)
             running_reward.append(reward)
             running_cumulative_episode_reward.append(
                 count_cumulative(
                     running_reward, running_cumulative_episode_reward, True
                 )
             )
-            reward = tf.expand_dims(tf.stack([reward]), 1)
+
+            actions_logits_update_batch_stack = tf.cast(
+                tf.stack(actions_logits_update_batch), dtype=tf.float64
+            )
+            encoded_actions_update_batch_stack = tf.cast(
+                tf.stack(encoded_actions_update_batch), dtype=tf.float64
+            )
+            rewards_update_batch_stack = tf.expand_dims(
+                standardizer(tf.cast(tf.stack(rewards_update_batch), dtype=tf.float64)),
+                1,
+            )
 
             loss = -tf.reduce_sum(
                 tf.multiply(
                     tf.nn.softmax_cross_entropy_with_logits(
-                        action_count, logits=actions_logits
+                        encoded_actions_update_batch_stack,
+                        logits=actions_logits_update_batch_stack,
                     ),
-                    reward,
+                    rewards_update_batch_stack,
                 )
             )
             loss_stack.append(loss)
 
-        gradient = tape.gradient(loss, model.trainable_weights)
-        optimizer = tf.keras.optimizers.Adagrad(lr)
-        optimizer.apply_gradients(zip(gradient, model.trainable_variables))
+            if batch_size % 5 == 0 or batch_size == (episodes - 1):
+
+                gradient = tape.gradient(loss, model.trainable_weights)
+                optimizer = tf.keras.optimizers.Adagrad(lr)
+                optimizer.apply_gradients(zip(gradient, model.trainable_variables))
+
+                actions_logits_update_batch.clear()
+                encoded_actions_update_batch.clear()
+                rewards_update_batch.clear()
 
         end = time.time()
         duration = end - start
         episode_duration.append(duration)
+        batch_size += 1
 
     return [
         loss_stack,
