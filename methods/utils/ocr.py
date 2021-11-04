@@ -1,4 +1,3 @@
-# Adding libraries required for text detection with Google Vision API
 from google.cloud import vision
 import io
 import numpy as np

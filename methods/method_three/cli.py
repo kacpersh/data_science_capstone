@@ -2,7 +2,7 @@ import argparse
 import pytz
 from datetime import datetime
 from luigi import build
-from methods.method_one.tasks import PrepareVisualizationsNBandit
+from methods.method_three.tasks import PrepareVisualizationsPbAgent
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-bd", "--base_dir", default="/home/kacper_krasowiak/")
@@ -15,8 +15,9 @@ parser.add_argument(
     "--description",
     default=datetime.now(pytz.timezone("Europe/London")).strftime("%d_%m_%Y_%H_%M"),
 )
-parser.add_argument("-w", "--weights", nargs="*", default=[0.2, 0.2, 0.2, 0.2, 0.2])
-parser.add_argument("-e", "--epsilon", default=0.2)
+parser.add_argument("-e", "--epsilon", default=0.2, type=float)
+parser.add_argument("-ms", "--max_steps", default=5, type=int)
+parser.add_argument("-g", "--gamma", default=0.9, type=float)
 parser.add_argument("-lr", "--learning_rate", default=0.001, type=float)
 
 
@@ -29,23 +30,25 @@ def main(args=None):
     :param str sampling_folder: folder number if th Sampling class method requires
     :param str sampling_focus_type: focus type if th Sampling class method requires
     :param str description: description of the experiment
-    :param str weights: a list of action weights
     :param str epsilon: probability bar to select an action different from the optimal one
+    :param str max_steps: a maximum number of preprocessing steps the model can take on one image
+    :param str gamma: a decaying discount factor, the higher the value the more forward looking the less weight for future values
     :param str learning_rate: learning rate for the Keras classification model
-    :returns: print out the visualizations of the results after training
+    :returns: save and print out the visualizations of the results after training
     """
     args = parser.parse_args()
     build(
         [
-            PrepareVisualizationsNBandit(
+            PrepareVisualizationsPbAgent(
                 base_dir=f"{args.base_dir}",
                 sample_size=args.sample_size,
                 sampling_method=f"{args.sampling_method}",
                 sampling_folder=f"{args.sampling_folder}",
                 sampling_focus_type=f"{args.sampling_focus_type}",
                 description=f"{args.description}",
-                weights=args.weights,
                 epsilon=args.epsilon,
+                max_steps=args.max_steps,
+                gamma=args.gamma,
                 lr=args.learning_rate,
             )
         ],

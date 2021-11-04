@@ -1,4 +1,3 @@
-# Adding libraries required for test image preprocessing
 import matplotlib.pyplot as plt
 
 
@@ -62,5 +61,33 @@ def plot_cumulative_action_count(
     plt.ylabel(ylabel, fontsize=12)
     plt.xlabel(xlabel, fontsize=12)
     plt.legend(actions)
+    plt.show()
+    plt.savefig(graph_path)
+
+
+def plot_cumulative_combination_count(
+    data: dict,
+    graph_path: str,
+    ylabel: str = "Count of unique action combinations",
+    title: str = "Count of top 5 unique action combinations from the training session",
+):
+    """Displays and saves a plot of the top 5 action combinations during the training process
+    :param data: an ordered dictionary of action combinations and respective counts
+    :param graph_path: path to save the graph
+    :param ylabel: Y-axis label
+    :param title: graph title
+    """
+    data = list(reversed(list(data.items())))[0:5]
+    plt.figure(figsize=(20, 10))
+    plt.bar([i[0] for i in data], [i[1] for i in data], linewidth=3)
+    if len(data) < 5:
+        plt.title(
+            f"Count of top {len(data)} unique action combinations from the training session",
+            fontsize=14,
+            fontweight="bold",
+        )
+    else:
+        plt.title(title, fontsize=14, fontweight="bold")
+    plt.ylabel(ylabel, fontsize=12)
     plt.show()
     plt.savefig(graph_path)
