@@ -1,6 +1,6 @@
 import argparse
-from datetime import datetime
 import pytz
+from datetime import datetime
 from luigi import build
 from methods.method_two.tasks import PrepareVisualizationsCBandit
 
@@ -16,6 +16,7 @@ parser.add_argument(
     default=datetime.now(pytz.timezone("Europe/London")).strftime("%d_%m_%Y_%H_%M"),
 )
 parser.add_argument("-e", "--epsilon", default=0.2)
+parser.add_argument("-lr", "--learning_rate", default=0.001, type=float)
 
 
 def main(args=None):
@@ -28,6 +29,7 @@ def main(args=None):
     :param str sampling_focus_type: focus type if th Sampling class method requires
     :param str description: description of the experiment
     :param str epsilon: probability bar to select an action different from the optimal one
+    :param str learning_rate: learning rate for the Keras classification model
     :returns: print out the visualizations of the results after training
     """
     args = parser.parse_args()
@@ -41,6 +43,7 @@ def main(args=None):
                 sampling_focus_type=f"{args.sampling_focus_type}",
                 description=f"{args.description}",
                 epsilon=args.epsilon,
+                lr=args.learning_rate,
             )
         ],
         local_scheduler=True,

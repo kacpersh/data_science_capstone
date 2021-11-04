@@ -1,7 +1,6 @@
 import os
 from datetime import datetime
 import pytz
-from statistics import mean
 from luigi import IntParameter
 from luigi import Parameter
 from luigi import ListParameter
@@ -10,7 +9,6 @@ from luigi import Task
 from luigi import LocalTarget
 from methods.utils.other import Sampling
 from methods.utils.other import load_pickle
-from methods.utils.rewards import cumulative_rewards
 from methods.utils.visualizations import plot_time_series
 from methods.utils.visualizations import plot_cumulative_action_count
 
@@ -65,6 +63,9 @@ class PassParameters(object):
     )
     weights = ListParameter(default=[0.2, 0.2, 0.2, 0.2, 0.2])
     epsilon = FloatParameter(default=0.2)
+    max_steps = IntParameter(default=5)
+    gamma = FloatParameter(default=0.9)
+    lr = FloatParameter(default=0.001)
 
     def collect_params(self):
         return {
@@ -76,6 +77,9 @@ class PassParameters(object):
             "description": self.description,
             "weights": self.weights,
             "epsilon": self.epsilon,
+            "max_steps": self.max_steps,
+            "gamma": self.gamma,
+            "lr": self.lr,
         }
 
 
@@ -123,28 +127,38 @@ class PrepareVisualizations(PassParameters, Task):
         os.mkdir(os.path.join(os.path.split(self.input().path)[0], "visualizations"))
         results = load_pickle(self.input().path)
         loss_series = results[0]
-        cumulative_reward_series = cumulative_rewards(results[1])
-        action_cumulative_count = results[2]
-        duration_series = results[3]
+        running_total_episode_reward = results[1]
+        running_cumulative_episode_reward = results[2]
+        running_episode_duration = results[3]
+        running_cumulative_episode_actions_count = results[4]
+
         plot_time_series(
             loss_series,
             os.path.join(self.output().path, "loss_plot.png"),
-            "Custom loss",
+            "Loss",
             "Changes of custom loss over no. of episodes",
         )
         plot_time_series(
-            cumulative_reward_series,
-            os.path.join(self.output().path, "cumulative_reward_plot.png"),
-            "Cumulative reward",
-            "Changes of cumulative reward over no. of episodes",
-        )
-        plot_cumulative_action_count(
-            action_cumulative_count,
-            os.path.join(self.output().path, "cumulative_action_count_plot.png"),
+            running_total_episode_reward,
+            os.path.join(self.output().path, "running_total_episode_reward.png"),
+            "Reward value",
+            "Changes of episode reward values over no. of episodes",
         )
         plot_time_series(
-            duration_series,
-            os.path.join(self.output().path, "episode_duration_plot.png"),
+            running_cumulative_episode_reward,
+            os.path.join(self.output().path, "running_cumulative_episode_reward.png"),
+            "Cumulative reward value",
+            "Changes of cumulative reward over no. of episodes",
+        )
+        plot_time_series(
+            running_episode_duration,
+            os.path.join(self.output().path, "running_episode_duration.png"),
             "Episode duration [s]",
-            f"Changes of episode duration over no. of episodes \n mean duration={round(mean(duration_series), 2)}",
+            "Changes of episode duration over no. of episodes",
+        )
+        plot_cumulative_action_count(
+            running_cumulative_episode_actions_count,
+            os.path.join(
+                self.output().path, "running_cumulative_episode_actions_count.png"
+            ),
         )

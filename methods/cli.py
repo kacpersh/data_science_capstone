@@ -1,8 +1,8 @@
 import argparse
-import pytz
 from datetime import datetime
+import pytz
 from luigi import build
-from methods.method_one.tasks import PrepareVisualizationsNBandit
+from methods.tasks import PrepareAllVisualizations
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-bd", "--base_dir", default="/home/kacper_krasowiak/")
@@ -15,8 +15,10 @@ parser.add_argument(
     "--description",
     default=datetime.now(pytz.timezone("Europe/London")).strftime("%d_%m_%Y_%H_%M"),
 )
+parser.add_argument("-e", "--epsilon", default=0.2, type=float)
 parser.add_argument("-w", "--weights", nargs="*", default=[0.2, 0.2, 0.2, 0.2, 0.2])
-parser.add_argument("-e", "--epsilon", default=0.2)
+parser.add_argument("-ms", "--max_steps", default=5, type=int)
+parser.add_argument("-g", "--gamma", default=0.9, type=float)
 parser.add_argument("-lr", "--learning_rate", default=0.001, type=float)
 
 
@@ -31,13 +33,15 @@ def main(args=None):
     :param str description: description of the experiment
     :param str weights: a list of action weights
     :param str epsilon: probability bar to select an action different from the optimal one
+    :param str max_steps: a maximum number of preprocessing steps the model can take on one image
+    :param str gamma: a decaying discount factor, the higher the value the more forward looking the less weight for future values
     :param str learning_rate: learning rate for the Keras classification model
-    :returns: print out the visualizations of the results after training
+    :returns: save and print out the visualizations of the results after training
     """
     args = parser.parse_args()
     build(
         [
-            PrepareVisualizationsNBandit(
+            PrepareAllVisualizations(
                 base_dir=f"{args.base_dir}",
                 sample_size=args.sample_size,
                 sampling_method=f"{args.sampling_method}",
@@ -46,6 +50,8 @@ def main(args=None):
                 description=f"{args.description}",
                 weights=args.weights,
                 epsilon=args.epsilon,
+                max_steps=args.max_steps,
+                gamma=args.gamma,
                 lr=args.learning_rate,
             )
         ],

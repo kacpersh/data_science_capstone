@@ -1,4 +1,3 @@
-# Adding libraries required for test image preprocessing
 import hashlib
 import pickle
 from functools import wraps
@@ -8,6 +7,7 @@ import cv2
 import tensorflow as tf
 from random import randint
 from fastwer import score
+from collections import Counter
 from methods.utils.ocr import baseline_text_detection
 from methods.utils.rewards import calculate_reward
 
@@ -139,6 +139,19 @@ def load_pickle(path: str):
         return pickle.load(filehandle)
 
 
+def weights2tensors(weights: list) -> list:
+    """Converts a list of floats to a list of tensors
+    :param weights: list of action weights to convert
+    :return: a list of tensor action weights
+    """
+    w1 = tf.Variable(weights[0], dtype=tf.float64)
+    w2 = tf.Variable(weights[1], dtype=tf.float64)
+    w3 = tf.Variable(weights[2], dtype=tf.float64)
+    w4 = tf.Variable(weights[3], dtype=tf.float64)
+    w5 = tf.Variable(weights[4], dtype=tf.float64)
+    return [w1, w2, w3, w4, w5]
+
+
 def resize_image(image: [str, np.ndarray], dim: tuple = (100, 100)) -> np.ndarray:
     """Resizes image to a specified shape
     :param image: path to a file with an image to be processed or a numpy array with an image
@@ -159,12 +172,14 @@ def generate_action(actions: list, weights: list, epsilon: float = 0.2) -> tuple
     :return: tuple with index of the action and function to process the image
     """
     if np.random.rand(1) < epsilon:
-        action_idx = randint(0, 3)
+        action_idx = randint(0, len(weights) - 1)
+        action_prob = weights[action_idx]
         action = actions[action_idx]
     else:
         action_idx = weights.index(max(weights))
+        action_prob = weights[action_idx]
         action = actions[action_idx]
-    return action_idx, action
+    return action_idx, action, action_prob
 
 
 def baseline_cer(image: [str, np.ndarray], tokens: str) -> float:
@@ -196,35 +211,18 @@ def rl_cer(
         return rl_score
 
 
-def custom_loss(action_weight: [float, tf.Tensor], reward: [int, float]) -> float:
+def custom_loss(action_weight: tf.Tensor, reward: float) -> tf.Tensor:
     """Returns a loss given function/action weight and received reward
     :param action_weight: current action weight
     :param reward: reward received for using an action to preprocess an image
     :return: a loss value
     """
-    loss = -(tf.math.log(action_weight) * reward)
-    if loss is float("nan"):
-        return 0
-    else:
-        return loss
-
-
-def weights2tensors(weights: list) -> list:
-    """Converts a list of floats to a list of tensors
-    :param weights: list of action weights to convert
-    :return: a list of tensor action weights
-    """
-    w1 = tf.Variable(weights[0])
-    w2 = tf.Variable(weights[1])
-    w3 = tf.Variable(weights[2])
-    w4 = tf.Variable(weights[3])
-    w5 = tf.Variable(weights[4])
-    return [w1, w2, w3, w4, w5]
+    return -(tf.math.log(action_weight) * reward)
 
 
 def env_interaction(
     image: np.ndarray, tokens: str, action, return_state: bool = False
-) -> [float, np.ndarray]:
+) -> [tf.Tensor, np.ndarray]:
     """Simulates interaction of the action with the environment, an image, and produces a reward
     :param image: path to a file with an image to be processed or a numpy array with an image
     :param tokens: string with all words actually being on an image
@@ -241,18 +239,6 @@ def env_interaction(
         rl_score = rl_cer(action, image, tokens, return_state)
         reward = calculate_reward(baseline_score, rl_score)
         return reward
-
-
-def cumulative_action_count(data: list, action_idx: int) -> list:
-    """Calculates a cumulative sum of action counts over no. of episodes
-    :param data: a list of list with running cumulative action count per episode
-    :param action_idx: an index of an action chosen in the current episode
-    :return: a list of cumulative sum of action counts for the current episode
-    """
-    action_count = [0, 0, 0, 0, 0]
-    action_count[action_idx] = action_count[action_idx] + 1
-    action_cumulative_sum = [sum(x) for x in zip(*[data[-1], action_count])]
-    return action_cumulative_sum
 
 
 def build_model(
@@ -276,24 +262,74 @@ def build_model(
     x = tf.keras.layers.Conv2D(200, kernel, activation="relu")(x)
     x = tf.keras.layers.Flatten()(x)
     x = tf.keras.layers.Dense(200, activation="relu")(x)
-    outputs = tf.keras.layers.Dense(no_classes, activation="softmax")(x)
+    outputs = tf.keras.layers.Dense(no_classes)(x)
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
     return model
 
 
 def generate_action_contextual(
-    predicted_actions: tf.Tensor, actions: list, epsilon: float = 0.2
+    actions_logits: tf.Tensor,
+    actions: list,
+    epsilon: float,
 ) -> tuple:
     """Returns a function to process the image, ensures balancing out exploration and exploitation
-    :param predicted_actions: a Tensor with
+    :param actions_logits: an output from the DNN model with action logit probabilities
     :param actions: a list of functions to process the image
     :param epsilon: probability bar to select an action different from the optimal one
     :return: tuple with index of the action and function to process the image
     """
-    if np.random.rand(1) < epsilon:
-        action_idx = randint(0, 4)
-        action = actions[action_idx]
+    if tf.random.uniform(shape=[], minval=0.0, maxval=1.0) < epsilon:
+        action_idx = tf.random.categorical(actions_logits, 1)[0, 0]
+        action = actions[int(action_idx)]
     else:
-        action_idx = int(tf.argmax(predicted_actions, -1).numpy())
-        action = actions[action_idx]
+        actions_probs = tf.nn.softmax(actions_logits)
+        action_idx = tf.argmax(actions_probs, -1)[0]
+        action = actions[int(action_idx)]
     return action_idx, action
+
+
+def count_cumulative(
+    running_total: list,
+    running_cumulative: list,
+    action_count: bool = False,
+    cbandit: bool = False,
+) -> [tf.Tensor, list]:
+    """Counts cumulative values of the running input, either reward or action count
+    :param running_total: a list with a series Tensor values to calculate the cumulative output
+    :param running_cumulative: a list where the cumulative values should be aggregated
+    :param action_count: an indicator whether the function is used to count the cumulative values of action count or not
+    :return: current cumulative value to append to running_cumulative
+    """
+    try:
+        last_cumulative = running_cumulative[-1]
+        new_total = running_total[-1]
+        if action_count is True:
+            return tf.squeeze(tf.math.add(last_cumulative, new_total))
+        else:
+            return [tf.squeeze(tf.math.add(last_cumulative, new_total))]
+    except IndexError:
+        if cbandit is True:
+            return tf.squeeze(running_total[-1])
+        else:
+            return running_total[-1]
+
+
+def count_action_combinations(array: list, actions: list) -> dict:
+    """Counts unique action combinations and outputs them in a sorted dictionary
+    :param array: a list with arrays or Tensors with action combinations to process
+    :param actions: a list of functions to process the image
+    :return: a sorted dictionary with the unique action combinations from training
+    """
+    action_names = [i.__name__ for i in actions]
+    array_processed = [np.where(i.numpy() >= 1, 1, 0) for i in array]
+    array_processed = [list(np.argwhere(i == 1).flatten()) for i in array_processed]
+    array_processed = [
+        [action_names[action] for action in combination]
+        for combination in array_processed
+    ]
+    array_processed = ["\n".join(combination) for combination in array_processed]
+    action_combination_count = dict(Counter(array_processed))
+    action_combination_count_sorted = dict(
+        sorted(action_combination_count.items(), key=lambda item: item[1])
+    )
+    return action_combination_count_sorted
