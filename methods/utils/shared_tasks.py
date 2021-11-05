@@ -175,11 +175,11 @@ class PrepareComplexVisualizations(PrepareSimpleVisualizations):
         os.mkdir(os.path.join(os.path.split(self.input().path)[0], "visualizations"))
         results = load_pickle(self.input().path)
         loss_series = results[0]
-        running_step_count = results[1]
-        running_total_episode_reward = results[2]
-        running_cumulative_episode_reward = results[3]
-        running_episode_duration = results[4]
-        running_cumulative_episode_actions_count = results[5]
+        running_total_episode_reward = results[1]
+        running_cumulative_episode_reward = results[2]
+        running_episode_duration = results[3]
+        running_cumulative_episode_actions_count = results[4]
+        running_step_count = results[5]
         actions_combinations_count = results[6]
 
         plot_time_series(
