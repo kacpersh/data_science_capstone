@@ -233,10 +233,10 @@ def actor_critic(
 
     return [
         loss_series,
-        running_step_count,
         running_total_episode_reward,
         running_cumulative_episode_reward,
         running_episode_duration,
         running_cumulative_episode_actions_count,
+        running_step_count,
         actions_combinations_count,
     ]

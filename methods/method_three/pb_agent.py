@@ -117,7 +117,7 @@ def run_episode(
             episode_actions_count,
         ) = run_step(data, model, epsilon, actions, max_steps)
         total_episode_reward.append(tf.math.reduce_sum(rewards_stack))
-        returns_stack = tf.expand_dims(rewards2returns(rewards_stack, gamma), 1)
+        returns_stack = tf.expand_dims(rewards2returns(rewards_stack, gamma, False), 1)
         # Different loss comapred to the one of the nbandit method to prevent inf and/or nan loss outputs
         loss = -tf.reduce_sum(
             tf.multiply(
@@ -212,10 +212,10 @@ def pb_agent(
 
     return [
         loss_series,
-        running_step_count,
         running_total_episode_reward,
         running_cumulative_episode_reward,
         running_episode_duration,
         running_cumulative_episode_actions_count,
+        running_step_count,
         actions_combinations_count,
     ]
