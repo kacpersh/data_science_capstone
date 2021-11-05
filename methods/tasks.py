@@ -8,12 +8,15 @@ from methods.method_one.nbandit import nbandit
 from methods.method_two.cbandit import cbandit
 from methods.method_three.pb_agent import pb_agent
 from methods.method_four.actor_critic import actor_critic
-from methods.utils.visualizations import (
-    plot_time_series,
-    plot_cumulative_action_count,
-    plot_cumulative_combination_count,
-)
+from methods.utils.rewards import standardizer
 from methods.utils.shared_tasks import PrepareSimpleVisualizations
+from methods.utils.visualizations import (
+    plot_summary_series,
+    plot_subplots,
+    prepare_histogram,
+    prepare_cumulative_action_count,
+    prepare_cumulative_combination_count,
+)
 
 
 class RunAll(PassParameters, Task):
@@ -74,192 +77,76 @@ class PrepareAllVisualizations(PrepareSimpleVisualizations):
         os.mkdir(os.path.join(os.path.split(self.input().path)[0], "visualizations"))
         results = load_pickle(self.input().path)
 
-        # N-bandit results
-        loss_series = results[0][0]
-        running_total_episode_reward = results[0][1]
-        running_cumulative_episode_reward = results[0][2]
-        running_episode_duration = results[0][3]
-        running_cumulative_episode_actions_count = results[0][4]
+        loss = [i[0] for i in results]
+        running_cumulative_reward = [i[2] for i in results]
+        running_episode_duration = [i[3] for i in results]
+        running_reward = [i[1] for i in results]
+        running_reward = [
+            [float(i.numpy()) for i in running_reward[0]],
+            [float(i.numpy()) for i in running_reward[1]],
+            [float(i[0].numpy()) for i in running_reward[2]],
+            [float(i[0].numpy()) for i in running_reward[3]],
+        ]
+        running_actions_count = [i[4] for i in results]
+        running_step_count = [i[5] for i in results[-2:]]
+        running_actions_combinations_count = [i[6] for i in results[-2:]]
 
-        plot_time_series(
-            loss_series,
-            os.path.join(self.output().path, "nb_loss_plot.png"),
-            "Loss",
-            "N-BANDIT - Changes of custom loss over no. of episodes",
+        plot_summary_series(
+            standardizer(loss),
+            "Changes of standardized loss over no. of episodes across all methods",
+            graph_path=os.path.join(self.output().path, "running_loss_plot.png"),
+            ylabel="Standardized loss",
         )
-        plot_time_series(
-            running_total_episode_reward,
-            os.path.join(self.output().path, "nb_running_total_episode_reward.png"),
-            "Reward value",
-            "N-BANDIT - Changes of episode reward values over no. of episodes",
-        )
-        plot_time_series(
-            running_cumulative_episode_reward,
-            os.path.join(
-                self.output().path, "nb_running_cumulative_episode_reward.png"
+        plot_summary_series(
+            running_cumulative_reward,
+            "Changes of cumulative reward over no. of episodes across all methods",
+            graph_path=os.path.join(
+                self.output().path, "running_cumulative_episode_reward.png"
             ),
-            "Cumulative reward value",
-            "N-BANDIT - Changes of cumulative reward over no. of episodes",
+            ylabel="Cumulative reward",
         )
-        plot_time_series(
+        plot_summary_series(
             running_episode_duration,
-            os.path.join(self.output().path, "nb_running_episode_duration.png"),
-            "Episode duration [s]",
-            "N-BANDIT - Changes of episode duration over no. of episodes",
+            "Changes of episode duration over no. of episodes across all methods",
+            graph_path=os.path.join(self.output().path, "running_episode_duration.png"),
+            ylabel="Episode duration [s]",
         )
-        plot_cumulative_action_count(
-            running_cumulative_episode_actions_count,
+        plot_subplots(
+            running_reward,
+            True,
+            "Histograms of episode rewards across all methods",
+            prepare_histogram,
+            "Count",
+            os.path.join(self.output().path, "running_histogram_episode_reward.png"),
+            xlabel_input="Reward",
+        )
+        plot_subplots(
+            running_actions_count,
+            True,
+            "Changes of cumulative action count over no. of episodes across all methods",
+            prepare_cumulative_action_count,
+            "Cumulative action count",
             os.path.join(
-                self.output().path, "nb_running_cumulative_episode_actions_count.png"
+                self.output().path, "running_cumulative_episode_actions_count.png"
             ),
-            title="N-BANDIT - Changes of cumulative action count over no. of episodes",
+            xlabel_input="No. of episodes",
         )
-
-        # Contextual bandit results
-        loss_series = results[1][0]
-        running_total_episode_reward = results[1][1]
-        running_cumulative_episode_reward = results[1][2]
-        running_episode_duration = results[1][3]
-        running_cumulative_episode_actions_count = results[1][4]
-
-        plot_time_series(
-            loss_series,
-            os.path.join(self.output().path, "cb_loss_plot.png"),
-            "Loss",
-            "CONTEXTUAL BANDIT - Changes of loss over no. of episodes",
-        )
-        plot_time_series(
-            running_total_episode_reward,
-            os.path.join(self.output().path, "cb_running_total_episode_reward.png"),
-            "Reward value",
-            "CONTEXTUAL BANDIT - Changes of episode reward values over no. of episodes",
-        )
-        plot_time_series(
-            running_cumulative_episode_reward,
-            os.path.join(
-                self.output().path, "cb_running_cumulative_episode_reward.png"
-            ),
-            "Cumulative reward value",
-            "CONTEXTUAL BANDIT - Changes of cumulative reward over no. of episodes",
-        )
-        plot_time_series(
-            running_episode_duration,
-            os.path.join(self.output().path, "cb_running_episode_duration.png"),
-            "Episode duration [s]",
-            "CONTEXTUAL BANDIT - Changes of episode duration over no. of episodes",
-        )
-        plot_cumulative_action_count(
-            running_cumulative_episode_actions_count,
-            os.path.join(
-                self.output().path, "cb_running_cumulative_episode_actions_count.png"
-            ),
-            title="CONTEXTUAL BANDIT - Changes of cumulative action count over no. of episodes",
-        )
-
-        # Policy-based results
-        loss_series = results[2][0]
-        running_step_count = results[2][1]
-        running_total_episode_reward = results[2][2]
-        running_cumulative_episode_reward = results[2][3]
-        running_episode_duration = results[2][4]
-        running_cumulative_episode_actions_count = results[2][5]
-        actions_combinations_count = results[2][6]
-
-        plot_time_series(
-            loss_series,
-            os.path.join(self.output().path, "pb_loss_plot.png"),
-            "Loss",
-            "POLICY-BASED AGENT - Changes of loss over no. of episodes",
-        )
-        plot_time_series(
+        plot_subplots(
             running_step_count,
-            os.path.join(self.output().path, "pb_running_step_count.png"),
+            False,
+            "Changes of no. of steps per episode over no. of episodes \n for the policy-based and action critic methods",
+            prepare_histogram,
             "No. of steps per episode",
-            "POLICY-BASED AGENT - Changes of no. of steps per episode over no. of episodes",
+            os.path.join(self.output().path, "running_step_count.png"),
+            combinations=False,
+            xlabel_input="No. of episodes",
         )
-        plot_time_series(
-            running_total_episode_reward,
-            os.path.join(self.output().path, "pb_running_total_episode_reward.png"),
-            "Reward value",
-            "POLICY-BASED AGENT - Changes of episode reward values over no. of episodes",
-        )
-        plot_time_series(
-            running_cumulative_episode_reward,
-            os.path.join(
-                self.output().path, "pb_running_cumulative_episode_reward.png"
-            ),
-            "Cumulative reward value",
-            "POLICY-BASED AGENT - Changes of cumulative reward over no. of episodes",
-        )
-        plot_time_series(
-            running_episode_duration,
-            os.path.join(self.output().path, "pb_running_episode_duration.png"),
-            "Episode duration [s]",
-            "POLICY-BASED AGENT - Changes of episode duration over no. of episodes",
-        )
-        plot_cumulative_action_count(
-            running_cumulative_episode_actions_count,
-            os.path.join(
-                self.output().path, "pb_running_cumulative_episode_actions_count.png"
-            ),
-            title="POLICY-BASED AGENT - Changes of cumulative action count over no. of episodes",
-        )
-        plot_cumulative_combination_count(
-            actions_combinations_count,
-            os.path.join(self.output().path, "pb_actions_combinations_count.png"),
-            title="POLICY-BASED AGENT - Count of top 5 unique action combinations from the training session",
-        )
-
-        # Actor-critic results
-        loss_series = results[3][0]
-        running_step_count = results[3][1]
-        running_total_episode_reward = results[3][2]
-        running_cumulative_episode_reward = results[3][3]
-        running_episode_duration = results[3][4]
-        running_cumulative_episode_actions_count = results[3][5]
-        actions_combinations_count = results[3][6]
-
-        plot_time_series(
-            loss_series,
-            os.path.join(self.output().path, "ac_loss_plot.png"),
-            "Loss",
-            "ACTOR-CRITIC - Changes of loss over no. of episodes",
-        )
-        plot_time_series(
-            running_step_count,
-            os.path.join(self.output().path, "ac_running_step_count.png"),
-            "No. of steps per episode",
-            "ACTOR-CRITIC - Changes of no. of steps per episode over no. of episodes",
-        )
-        plot_time_series(
-            running_total_episode_reward,
-            os.path.join(self.output().path, "ac_running_total_episode_reward.png"),
-            "Reward value",
-            "ACTOR-CRITIC - Changes of episode reward values over no. of episodes",
-        )
-        plot_time_series(
-            running_cumulative_episode_reward,
-            os.path.join(
-                self.output().path, "ac_running_cumulative_episode_reward.png"
-            ),
-            "Cumulative reward value",
-            "ACTOR-CRITIC - Changes of cumulative reward over no. of episodes",
-        )
-        plot_time_series(
-            running_episode_duration,
-            os.path.join(self.output().path, "ac_running_episode_duration.png"),
-            "Episode duration [s]",
-            "ACTOR-CRITIC - Changes of episode duration over no. of episodes",
-        )
-        plot_cumulative_action_count(
-            running_cumulative_episode_actions_count,
-            os.path.join(
-                self.output().path, "ac_running_cumulative_episode_actions_count.png"
-            ),
-            title="ACTOR-CRITIC - Changes of cumulative action count over no. of episodes",
-        )
-        plot_cumulative_combination_count(
-            actions_combinations_count,
-            os.path.join(self.output().path, "ac_actions_combinations_count.png"),
-            title="ACTOR-CRITIC - Count of top 5 unique action combinations from the training session",
+        plot_subplots(
+            running_actions_combinations_count,
+            False,
+            "Count of top 5 unique action combinations from the training session \n for the policy-based and action critic methods",
+            prepare_cumulative_combination_count,
+            "Count of unique action combinations",
+            os.path.join(self.output().path, "actions_combinations_count.png"),
+            combinations=True,
         )

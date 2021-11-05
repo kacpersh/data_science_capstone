@@ -102,7 +102,7 @@ def cbandit(
                 tf.stack(encoded_actions_update_batch), dtype=tf.float64
             )
             rewards_update_batch_stack = tf.expand_dims(
-                standardizer(tf.cast(tf.stack(rewards_update_batch), dtype=tf.float64)),
+                tf.cast(tf.stack(rewards_update_batch), dtype=tf.float64),
                 1,
             )
 
