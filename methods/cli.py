@@ -2,7 +2,11 @@ import argparse
 from datetime import datetime
 import pytz
 from luigi import build
-from methods.tasks import PrepareAllVisualizations
+from methods.tasks import (
+    PrepareAllVisualizations,
+    PrepareSampleTuning,
+    PrepareAllVisualizationsSample,
+)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-bd", "--base_dir", default="/home/kacper_krasowiak/")
@@ -20,6 +24,9 @@ parser.add_argument("-w", "--weights", nargs="*", default=[0.2, 0.2, 0.2, 0.2, 0
 parser.add_argument("-ms", "--max_steps", default=5, type=int)
 parser.add_argument("-g", "--gamma", default=0.9, type=float)
 parser.add_argument("-lr", "--learning_rate", default=0.001, type=float)
+parser.add_argument("-ps", "--prepare_sample", default=False, type=bool)
+parser.add_argument("-sp", "--sample_path", default=None)
+parser.add_argument("-en", "--experiment_name", default=None)
 
 
 def main(args=None):
@@ -36,27 +43,68 @@ def main(args=None):
     :param str max_steps: a maximum number of preprocessing steps the model can take on one image
     :param str gamma: a decaying discount factor, the higher the value the more forward looking the less weight for future values
     :param str learning_rate: learning rate for the Keras classification model
+    :param str prepare_sample: boolean decision if the command goal is just to prepare a data sample for further experiments
+    :param str sample_path: a path of a data sample for further experiments
+    :param str experiment_name: name of the conducted experiment
     :returns: save and print out the visualizations of the results after training
     """
     args = parser.parse_args()
-    build(
-        [
-            PrepareAllVisualizations(
-                base_dir=f"{args.base_dir}",
-                sample_size=args.sample_size,
-                sampling_method=f"{args.sampling_method}",
-                sampling_folder=f"{args.sampling_folder}",
-                sampling_focus_type=f"{args.sampling_focus_type}",
-                description=f"{args.description}",
-                weights=args.weights,
-                epsilon=args.epsilon,
-                max_steps=args.max_steps,
-                gamma=args.gamma,
-                lr=args.learning_rate,
+
+    if args.prepare_sample is True:
+
+        build(
+            [
+                PrepareSampleTuning(
+                    base_dir=f"{args.base_dir}",
+                    sample_size=args.sample_size,
+                    sampling_method=f"{args.sampling_method}",
+                    sampling_folder=f"{args.sampling_folder}",
+                    sampling_focus_type=f"{args.sampling_focus_type}",
+                    description=f"{args.description}",
+                )
+            ],
+            local_scheduler=True,
+        )
+
+    else:
+
+        if args.sample_path is not None:
+
+            build(
+                [
+                    PrepareAllVisualizationsSample(
+                        weights=args.weights,
+                        epsilon=args.epsilon,
+                        max_steps=args.max_steps,
+                        gamma=args.gamma,
+                        lr=args.learning_rate,
+                        sample_path=f"{args.sample_path}",
+                        experiment_name=f"{args.experiment_name}",
+                    )
+                ],
+                local_scheduler=True,
             )
-        ],
-        local_scheduler=True,
-    )
+
+        else:
+
+            build(
+                [
+                    PrepareAllVisualizations(
+                        base_dir=f"{args.base_dir}",
+                        sample_size=args.sample_size,
+                        sampling_method=f"{args.sampling_method}",
+                        sampling_folder=f"{args.sampling_folder}",
+                        sampling_focus_type=f"{args.sampling_focus_type}",
+                        description=f"{args.description}",
+                        weights=args.weights,
+                        epsilon=args.epsilon,
+                        max_steps=args.max_steps,
+                        gamma=args.gamma,
+                        lr=args.learning_rate,
+                    )
+                ],
+                local_scheduler=True,
+            )
 
 
 if __name__ == "__main__":
