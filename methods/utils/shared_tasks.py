@@ -24,6 +24,7 @@ def luigi_sample_runner(
     sampling_folder: int,
     sampling_focus_type: str,
     output: str,
+    hyper_tuning: bool = False,
 ):
     """Executes the sampling procedure with the Sampling class and specified method
     :param base_dir: path to base directory where sample should be saved
@@ -33,13 +34,17 @@ def luigi_sample_runner(
     :param sampling_folder: folder number if th Sampling class method requires
     :param sampling_focus_type: focus type if th Sampling class method requires
     :param output: path to save the sample
+    :param hyper_tuning: boolean if the sample is meant for hyperparamter tuning experiments
     """
     base_output = os.path.join(base_dir, "output")
     base_read = os.path.join(base_dir, "data/metadata")
     if os.path.exists(base_output) is False:
         os.mkdir(base_output)
-        os.system("sudo chmod 777" + os.path.join(base_dir, "output"))
-    os.mkdir(base_output + "/experiment_" + description)
+        os.system("sudo chmod 777 " + os.path.join(base_dir, "output"))
+    if hyper_tuning is True:
+        os.mkdir(base_output + "/tuning_experiments_sample_" + description)
+    else:
+        os.mkdir(base_output + "/experiment_" + description)
     sample_class = Sampling(base_read, sample_size)
     method = getattr(sample_class, sampling_method)
     if sampling_method == "filter_a":
@@ -69,6 +74,8 @@ class PassParameters(object):
     max_steps = IntParameter(default=5)
     gamma = FloatParameter(default=0.9)
     lr = FloatParameter(default=0.001)
+    sample_path = Parameter(default=None)
+    experiment_name = Parameter(default=None)
 
     def collect_params(self):
         return {
@@ -83,6 +90,8 @@ class PassParameters(object):
             "max_steps": self.max_steps,
             "gamma": self.gamma,
             "lr": self.lr,
+            "sample_path": self.sample_path,
+            "experiment_name": self.experiment_name,
         }
 
 
