@@ -21,7 +21,7 @@ from methods.utils.actions import (
     increase_brightness,
     no_action,
 )
-from methods.utils.rewards import rewards2returns
+from methods.utils.rewards import rewards2returns, standardizer
 
 
 class ActorCritic(tf.keras.Model):
@@ -71,6 +71,7 @@ def run_step(
         state = tf.cast(tf.expand_dims(image, 0), dtype=tf.float64)
 
         actions_logits, value = model(state)
+        actions_logits = standardizer(actions_logits)
         actions_probs, action_idx, action = generate_action_ac(
             actions_logits, actions, epsilon
         )
