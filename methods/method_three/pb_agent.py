@@ -47,7 +47,6 @@ def run_step(
         if image.shape != (100, 100):
             image = resize_image(image)
         state = tf.expand_dims(image, 0)
-        # Standardization is required to control the loss and gradient
         actions_logits = standardizer(model(state))
         actions_logits_stack.append(tf.squeeze(actions_logits))
         action_idx, action = generate_action_contextual(
@@ -118,7 +117,6 @@ def run_episode(
         ) = run_step(data, model, epsilon, actions, max_steps)
         total_episode_reward.append(tf.math.reduce_sum(rewards_stack))
         returns_stack = tf.expand_dims(rewards2returns(rewards_stack, gamma, False), 1)
-        # Different loss comapred to the one of the nbandit method to prevent inf and/or nan loss outputs
         loss = -tf.reduce_sum(
             tf.multiply(
                 tf.nn.softmax_cross_entropy_with_logits(
