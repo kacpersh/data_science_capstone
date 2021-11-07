@@ -380,3 +380,21 @@ def ac_loss(
     critic_loss = tf.cast(huber_loss(values_stack, rewards_stack), dtype=tf.float64)
     loss = actor_loss + critic_loss
     return loss
+
+
+def zero_one_normalizer(array: [np.ndarray, tf.Tensor]) -> np.ndarray:
+    """Normalizes data between 0 and 1
+    :param array: an array or Tensor with data to normalize
+    :return: a normalized array
+    """
+    return (array - np.min(array)) / (np.max(array) - np.min(array))
+
+
+def sampler(array: [np.ndarray, tf.Tensor], steps: int = 25) -> np.ndarray:
+    """Samples the data every n-steps
+    :param array: an array or Tensor with data to sample
+    :param steps: number of steps to make before taking a sample
+    :return: a samples array
+    """
+    stop = len(array) - 1
+    return array[0:stop:steps]

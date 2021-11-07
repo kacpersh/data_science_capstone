@@ -76,6 +76,7 @@ class PassParameters(object):
     lr = FloatParameter(default=0.001)
     sample_path = Parameter(default=None)
     experiment_name = Parameter(default=None)
+    loss_sampling_steps = IntParameter(default=25)
 
     def collect_params(self):
         return {
@@ -92,6 +93,7 @@ class PassParameters(object):
             "lr": self.lr,
             "sample_path": self.sample_path,
             "experiment_name": self.experiment_name,
+            "loss_sampling_steps": self.loss_sampling_steps,
         }
 
 

@@ -2,14 +2,13 @@ import os
 import pandas as pd
 from luigi import Task
 from luigi import LocalTarget
-from methods.utils.other import save_pickle, load_pickle
+from methods.utils.other import save_pickle, load_pickle, zero_one_normalizer, sampler
 from methods.utils.shared_tasks import luigi_sample_runner
 from methods.utils.shared_tasks import PassParameters, PrepareSample
 from methods.method_one.nbandit import nbandit
 from methods.method_two.cbandit import cbandit
 from methods.method_three.pb_agent import pb_agent
 from methods.method_four.actor_critic import actor_critic
-from methods.utils.rewards import standardizer
 from methods.utils.shared_tasks import PrepareSimpleVisualizations
 from methods.utils.visualizations import (
     plot_summary_series,
@@ -20,9 +19,17 @@ from methods.utils.visualizations import (
 )
 
 
-def run_all_methods(input, weights, epsilon, lr, max_steps, gamma, output):
+def run_all_methods(
+    data_input: str,
+    weights: list,
+    epsilon: float,
+    lr: float,
+    max_steps: int,
+    gamma: float,
+    output: str,
+):
     """Support function for a Luigi task to execute all methods from a shared data sample
-    :param input: path to a Pandas dataframe with a training sample
+    :param data_input: path to a Pandas dataframe with a training sample
     :param weights:  a list of action weights
     :param epsilon: probability bar to select an action different from the optimal one
     :param lr: learning rate for the Keras classification model
@@ -31,14 +38,14 @@ def run_all_methods(input, weights, epsilon, lr, max_steps, gamma, output):
     :param output: path to save the pickled file with outputs
     """
     nbandit_results = nbandit(
-        data=pd.read_csv(input),
+        data=pd.read_csv(data_input),
         weights=weights,
         epsilon=epsilon,
         lr=lr,
     )
-    cbandit_results = cbandit(data=pd.read_csv(input), epsilon=epsilon, lr=lr)
+    cbandit_results = cbandit(data=pd.read_csv(data_input), epsilon=epsilon, lr=lr)
     pb_agent_results = pb_agent(
-        data=pd.read_csv(input),
+        data=pd.read_csv(data_input),
         epsilon=epsilon,
         max_steps=max_steps,
         gamma=gamma,
@@ -46,7 +53,7 @@ def run_all_methods(input, weights, epsilon, lr, max_steps, gamma, output):
     )
 
     actor_critic_results = actor_critic(
-        data=pd.read_csv(input),
+        data=pd.read_csv(data_input),
         epsilon=epsilon,
         max_steps=max_steps,
         gamma=gamma,
@@ -59,30 +66,46 @@ def run_all_methods(input, weights, epsilon, lr, max_steps, gamma, output):
     )
 
 
-def make_all_plots(input, output):
+def make_all_plots(data_input: list, output: str, loss_steps_sampling: int):
     """Support function for a Luigi task to print and save summary plots
-    :param input: path to a pickled file with training results
+    :param data_input: path to a pickled file with training results
     :param output: path to a folder where the summary plots should be saved
+    :param loss_steps_sampling: Number of steps to make before taking a sample
     """
-    loss = [i[0] for i in input]
-    running_cumulative_reward = [i[2] for i in input]
-    running_episode_duration = [i[3] for i in input]
-    running_reward = [i[1] for i in input]
+    loss = [i[0] for i in data_input]
+    loss_norm = [zero_one_normalizer(i) for i in loss]
+    loss_norm_sample = [sampler(i, loss_steps_sampling) for i in loss_norm]
+    running_cumulative_reward = [i[2] for i in data_input]
+    running_episode_duration = [i[3] for i in data_input]
+    running_reward = [i[1] for i in data_input]
     running_reward = [
         [float(i.numpy()) for i in running_reward[0]],
         [float(i.numpy()) for i in running_reward[1]],
         [float(i[0].numpy()) for i in running_reward[2]],
         [float(i[0].numpy()) for i in running_reward[3]],
     ]
-    running_actions_count = [i[4] for i in input]
-    running_step_count = [i[5] for i in input[-2:]]
-    running_actions_combinations_count = [i[6] for i in input[-2:]]
+    running_actions_count = [i[4] for i in data_input]
+    running_step_count = [i[5] for i in data_input[-2:]]
+    running_actions_combinations_count = [i[6] for i in data_input[-2:]]
 
     plot_summary_series(
-        standardizer(loss),
-        "Changes of standardized loss over no. of episodes across all methods",
+        loss,
+        "Changes of loss over no. of episodes across all methods",
         graph_path=os.path.join(output, "running_loss_plot.png"),
-        ylabel="Standardized loss",
+        ylabel="Loss",
+    )
+    plot_summary_series(
+        loss_norm,
+        "Changes of normalized loss over no. of episodes across all methods",
+        graph_path=os.path.join(output, "running_normalized_loss_plot.png"),
+        ylabel="Normalized loss",
+    )
+    plot_summary_series(
+        loss_norm_sample,
+        f"Changes of normalized loss sampled every {loss_steps_sampling} steps across all methods",
+        graph_path=os.path.join(output, "running_sampled_normalized_loss_plot.png"),
+        xlabel=f"N-{loss_steps_sampling}th episode",
+        ylabel="Normalized loss",
     )
     plot_summary_series(
         running_cumulative_reward,
@@ -176,7 +199,7 @@ class PrepareAllVisualizations(PrepareSimpleVisualizations):
             os.system("sudo chmod 777 " + output)
         input = load_pickle(self.input().path)
 
-        make_all_plots(input, output)
+        make_all_plots(input, output, self.loss_sampling_steps)
 
 
 class PrepareSampleTuning(PrepareSample):
@@ -269,4 +292,4 @@ class PrepareAllVisualizationsSample(PrepareSimpleVisualizations):
             os.system("sudo chmod 777 " + output)
         input = load_pickle(self.input().path)
 
-        make_all_plots(input, output)
+        make_all_plots(input, output, self.loss_sampling_steps)
