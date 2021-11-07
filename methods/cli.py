@@ -27,6 +27,7 @@ parser.add_argument("-lr", "--learning_rate", default=0.001, type=float)
 parser.add_argument("-ps", "--prepare_sample", default=False, type=bool)
 parser.add_argument("-sp", "--sample_path", default=None)
 parser.add_argument("-en", "--experiment_name", default=None)
+parser.add_argument("-lss", "--loss_sampling_steps", default=25, type=int)
 
 
 def main(args=None):
@@ -46,6 +47,7 @@ def main(args=None):
     :param str prepare_sample: boolean decision if the command goal is just to prepare a data sample for further experiments
     :param str sample_path: a path of a data sample for further experiments
     :param str experiment_name: name of the conducted experiment
+    :param str loss_sampling_steps: number of steps to make before taking a sample
     :returns: save and print out the visualizations of the results after training
     """
     args = parser.parse_args()
@@ -80,6 +82,7 @@ def main(args=None):
                         lr=args.learning_rate,
                         sample_path=f"{args.sample_path}",
                         experiment_name=f"{args.experiment_name}",
+                        loss_sampling_steps=args.loss_sampling_steps,
                     )
                 ],
                 local_scheduler=True,
@@ -101,6 +104,7 @@ def main(args=None):
                         max_steps=args.max_steps,
                         gamma=args.gamma,
                         lr=args.learning_rate,
+                        loss_sampling_steps=args.loss_sampling_steps,
                     )
                 ],
                 local_scheduler=True,
