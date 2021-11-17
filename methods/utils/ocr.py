@@ -2,9 +2,10 @@ from google.cloud import vision
 import io
 import numpy as np
 import cv2
+from retrying import retry
 
 
-def process_api_output(api_output: str) -> str:
+def process_api_output(api_output: list) -> str:
     """Returns a list with processed Google Vision API output
     :param api_output: a list with raw Google Vision API output
     :return: a list with processed Google Vision API output
@@ -16,28 +17,24 @@ def process_api_output(api_output: str) -> str:
         return ""
 
 
-def baseline_text_detection(image: [str, np.ndarray]) -> list:
+@retry(stop_max_attempt_number=5, stop_max_delay=5000)
+def baseline_text_detection(image: [str, np.ndarray]) -> str:
     """Detects text on image
-    :param str image: path to a file with an image to be processed or a numpy array with an image
-    :param bool from_file: boolean input to indicate if an image needs to be read from path or is already contained in an NumPy array
-    :returns str: string of words detected on the provided image
+    :param image: path to a file with an image to be processed or a numpy array with an image
+    :returns: string of words detected on the provided image
     """
     client = vision.ImageAnnotatorClient()
 
     if type(image) is str:
-        # Opening file
         with io.open(image, "rb") as f:
             content = f.read()
 
-        # Loading file to Google Vision API
         input = vision.Image(content=content)
 
     else:
-        # Loading np.ndarray to Google Vision API
         _, content = cv2.imencode(".png", image)
         input = vision.Image(content=content.tobytes())
 
-    # Generating predictions
     response = client.text_detection(image=input)
     texts = response.text_annotations
 

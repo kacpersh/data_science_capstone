@@ -217,7 +217,7 @@ def custom_loss(action_weight: tf.Tensor, reward: float) -> tf.Tensor:
     :param reward: reward received for using an action to preprocess an image
     :return: a loss value
     """
-    return -(tf.math.log(action_weight) * reward)
+    return tf.math.log(action_weight) * reward
 
 
 def env_interaction(
@@ -375,26 +375,19 @@ def ac_loss(
     """
     advantage = rewards_stack - values_stack
     action_log_probs = tf.math.log(actions_probs_stack)
-    actor_loss = -tf.math.reduce_sum(action_log_probs * advantage)
+    actor_loss = tf.math.reduce_sum(action_log_probs * advantage)
     huber_loss = tf.keras.losses.Huber(reduction=tf.keras.losses.Reduction.SUM)
     critic_loss = tf.cast(huber_loss(values_stack, rewards_stack), dtype=tf.float64)
     loss = actor_loss + critic_loss
     return loss
 
 
-def zero_one_normalizer(array: [np.ndarray, tf.Tensor]) -> np.ndarray:
-    """Normalizes data between 0 and 1
-    :param array: an array or Tensor with data to normalize
-    :return: a normalized array
-    """
-    return (array - np.min(array)) / (np.max(array) - np.min(array))
-
-
-def sampler(array: [np.ndarray, tf.Tensor], steps: int = 25) -> np.ndarray:
-    """Samples the data every n-steps
+def moving_average(array: [np.ndarray, tf.Tensor], steps: int = 25) -> np.ndarray:
+    """Calculates a moving average in a provided array
     :param array: an array or Tensor with data to sample
-    :param steps: number of steps to make before taking a sample
-    :return: a samples array
+    :param steps: number of steps to make while calculating a moving average
+    :return: an array with a moving average
     """
-    stop = len(array) - 1
-    return array[0:stop:steps]
+    ret = np.cumsum(array, dtype=float)
+    ret[steps:] = ret[steps:] - ret[:-steps]
+    return ret[steps - 1 :] / steps
