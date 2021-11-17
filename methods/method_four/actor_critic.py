@@ -71,7 +71,6 @@ def run_step(
         state = tf.cast(tf.expand_dims(image, 0), dtype=tf.float64)
 
         actions_logits, value = model(state)
-        actions_logits = standardizer(actions_logits)
         actions_probs, action_idx, action = generate_action_ac(
             actions_logits, actions, epsilon
         )
