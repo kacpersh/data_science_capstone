@@ -1,7 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FixedLocator
+from matplotlib import gridspec
 import tensorflow as tf
+from methods.utils.other import moving_average
 
 
 def plot_time_series(
@@ -96,32 +98,6 @@ def plot_cumulative_combination_count(
     plt.savefig(graph_path)
 
 
-def prepare_histogram(
-    data: [list, np.ndarray, tf.Tensor],
-    title: str,
-    axes: plt.axes,
-    xlabel: bool,
-    ylabel: bool,
-    **kwargs,
-) -> plt.plot:
-    """Prepares a subplot histogram plot to later be included to an encompassing plot
-    :param data: a series of data to be displayed on a histogram
-    :param title: graph title
-    :param axes: a subplot location
-    :param xlabel: a boolean value if X-axis label should be included
-    :param ylabel: a boolean value if Y-axis label should be included
-    :return: a histogram subplot
-    """
-    plt = axes
-    plt.hist(data)
-    plt.set_title(title, fontweight="bold")
-    if xlabel is True:
-        plt.set_xlabel(kwargs.get("xlabel_input"), fontsize=12)
-    if ylabel is True:
-        plt.set_ylabel(kwargs.get("ylabel_input"), fontsize=12)
-    return plt
-
-
 def prepare_cumulative_action_count(
     data: [list, np.ndarray, tf.Tensor],
     title: str,
@@ -201,8 +177,18 @@ def plot_summary_series(
     plt.figure(figsize=(20, 10))
     plt.plot(range(0, len(data[0])), data[0], linewidth=3, label="nbandit")
     plt.plot(range(0, len(data[1])), data[1], linewidth=3, label="contextual bandit")
-    plt.plot(range(0, len(data[2])), data[2], linewidth=3, label="policy-based")
-    plt.plot(range(0, len(data[3])), data[3], linewidth=3, label="actor-critic")
+    plt.plot(
+        range(0, len(data[2])),
+        data[2],
+        linewidth=3,
+        label="policy-based (episode mean)",
+    )
+    plt.plot(
+        range(0, len(data[3])),
+        data[3],
+        linewidth=3,
+        label="actor-critic (episode mean)",
+    )
     plt.title(title, fontsize=14, fontweight="bold")
     plt.xlabel(xlabel, fontsize=12)
     plt.ylabel(ylabel, fontsize=12)
@@ -288,4 +274,109 @@ def plot_subplots(
     fig.suptitle(title, fontsize=14, fontweight="bold", y=0.99)
     fig.tight_layout()
     fig.show()
+    plt.savefig(graph_path)
+
+
+def prepare_reward_loss_plot(
+    loss_data: [np.ndarray, tf.Tensor],
+    reward_data: [np.ndarray, tf.Tensor],
+    steps: int,
+    title: str,
+    xlabel: bool,
+    axes: plt.axes,
+) -> plt.plot:
+    """Prepares a subplot with loss and reward data plotted to be included in a subplot
+    :param loss_data: a series of loss data to be plotted
+    :param reward_data: a series of reward data to be plotted
+    :param steps: number of steps to make while calculating a moving average
+    :param title: graph title
+    :param xlabel: a boolean value if the X-axis label should be included
+    :param axes: a subplot location
+    :return: a subplot
+    """
+    loss_data = moving_average(loss_data, steps)
+    reward_data = moving_average(reward_data, steps)
+    plt = axes
+    plt.plot(
+        range(0, len(loss_data)), loss_data, linewidth=3, label="loss", color="tab:red"
+    )
+    plt.set_title(title, fontweight="bold")
+    plt.set_ylabel("Moving average of episode loss", fontsize=12)
+    if xlabel is True:
+        plt.set_xlabel("No. of episodes", fontsize=12)
+
+    ax2 = plt.twinx()
+    if title == "Policy-based" or title == "Actor-critic":
+        ax2.plot(
+            range(0, len(reward_data)),
+            reward_data,
+            linewidth=3,
+            label="reward\n(episode mean)",
+            color="tab:green",
+        )
+    else:
+        ax2.plot(
+            range(0, len(reward_data)),
+            reward_data,
+            linewidth=3,
+            label="reward",
+            color="tab:green",
+        )
+    ax2.set_ylabel("Mving average of episode reward", fontsize=12)
+
+    h1, l1 = plt.get_legend_handles_labels()
+    h2, l2 = ax2.get_legend_handles_labels()
+    plt.legend(h1 + h2, l1 + l2)
+    return plt
+
+
+def plot_loss_reward_subplots(
+    loss_data: list, reward_data: list, steps: int, graph_path: str
+):
+    """Displays and saves a graph with two or four subplots
+    :param loss_data: a series of loss data to be plotted
+    :param reward_data: a series of reward data to be plotted
+    :param steps: number of steps to make while calculating a moving average
+    :param graph_path: path to save the graph
+    """
+    fig = plt.figure(constrained_layout=True, figsize=(10, 10))
+    grid_spec = gridspec.GridSpec(ncols=2, nrows=2, figure=fig)
+    p1 = prepare_reward_loss_plot(
+        loss_data[0],
+        reward_data[0],
+        steps,
+        "Nbandit",
+        False,
+        fig.add_subplot(grid_spec[0, 0]),
+    )
+    p2 = prepare_reward_loss_plot(
+        loss_data[1],
+        reward_data[1],
+        steps,
+        "Contextual bandit",
+        False,
+        fig.add_subplot(grid_spec[0, 1]),
+    )
+    p3 = prepare_reward_loss_plot(
+        loss_data[2],
+        reward_data[2],
+        steps,
+        "Policy-based",
+        True,
+        fig.add_subplot(grid_spec[1, 0]),
+    )
+    p4 = prepare_reward_loss_plot(
+        loss_data[3],
+        reward_data[3],
+        steps,
+        "Actor-critic",
+        True,
+        fig.add_subplot(grid_spec[1, 1]),
+    )
+    fig.suptitle(
+        f"Moving averages (every {steps} steps) of episode losses and returns across all methods",
+        fontsize=14,
+        fontweight="bold",
+        y=1.03,
+    )
     plt.savefig(graph_path)

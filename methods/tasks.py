@@ -1,8 +1,9 @@
 import os
 import pandas as pd
+import numpy as np
 from luigi import Task
 from luigi import LocalTarget
-from methods.utils.other import save_pickle, load_pickle, zero_one_normalizer, sampler
+from methods.utils.other import save_pickle, load_pickle
 from methods.utils.shared_tasks import luigi_sample_runner
 from methods.utils.shared_tasks import PassParameters, PrepareSample
 from methods.method_one.nbandit import nbandit
@@ -13,9 +14,9 @@ from methods.utils.shared_tasks import PrepareSimpleVisualizations
 from methods.utils.visualizations import (
     plot_summary_series,
     plot_subplots,
-    prepare_histogram,
     prepare_cumulative_action_count,
     prepare_cumulative_combination_count,
+    plot_loss_reward_subplots,
 )
 
 
@@ -66,17 +67,13 @@ def run_all_methods(
     )
 
 
-def make_all_plots(data_input: list, output: str, loss_steps_sampling: int):
+def make_all_plots(data_input: list, output: str, moving_average_steps: int):
     """Support function for a Luigi task to print and save summary plots
     :param data_input: path to a pickled file with training results
     :param output: path to a folder where the summary plots should be saved
-    :param loss_steps_sampling: Number of steps to make before taking a sample
+    :param moving_average_steps: number of steps to make while calculating a moving average
     """
     loss = [i[0] for i in data_input]
-    loss_norm = [zero_one_normalizer(i) for i in loss]
-    loss_norm_sample = [sampler(i, loss_steps_sampling) for i in loss_norm]
-    running_cumulative_reward = [i[2] for i in data_input]
-    running_episode_duration = [i[3] for i in data_input]
     running_reward = [i[1] for i in data_input]
     running_reward = [
         [float(i.numpy()) for i in running_reward[0]],
@@ -88,45 +85,30 @@ def make_all_plots(data_input: list, output: str, loss_steps_sampling: int):
     running_step_count = [i[5] for i in data_input[-2:]]
     running_actions_combinations_count = [i[6] for i in data_input[-2:]]
 
-    plot_summary_series(
+    cum_pb_ave_re = np.cumsum(
+        [i / j for i, j in zip(running_reward[2], running_step_count[0])]
+    )
+    cum_ac_ave_re = np.cumsum(
+        [i / j for i, j in zip(running_reward[3], running_step_count[1])]
+    )
+    running_cumulative_reward = [
+        np.cumsum(running_reward[0]),
+        np.cumsum(running_reward[1]),
+        cum_pb_ave_re,
+        cum_ac_ave_re,
+    ]
+
+    plot_loss_reward_subplots(
         loss,
-        "Changes of loss over no. of episodes across all methods",
-        graph_path=os.path.join(output, "running_loss_plot.png"),
-        ylabel="Loss",
-    )
-    plot_summary_series(
-        loss_norm,
-        "Changes of normalized loss over no. of episodes across all methods",
-        graph_path=os.path.join(output, "running_normalized_loss_plot.png"),
-        ylabel="Normalized loss",
-    )
-    plot_summary_series(
-        loss_norm_sample,
-        f"Changes of normalized loss sampled every {loss_steps_sampling} steps across all methods",
-        graph_path=os.path.join(output, "running_sampled_normalized_loss_plot.png"),
-        xlabel=f"N-{loss_steps_sampling}th episode",
-        ylabel="Normalized loss",
+        running_reward,
+        moving_average_steps,
+        graph_path=os.path.join(output, "running_loss_reward_plot.png"),
     )
     plot_summary_series(
         running_cumulative_reward,
         "Changes of cumulative reward over no. of episodes across all methods",
         graph_path=os.path.join(output, "running_cumulative_episode_reward.png"),
         ylabel="Cumulative reward",
-    )
-    plot_summary_series(
-        running_episode_duration,
-        "Changes of episode duration over no. of episodes across all methods",
-        graph_path=os.path.join(output, "running_episode_duration.png"),
-        ylabel="Episode duration [s]",
-    )
-    plot_subplots(
-        running_reward,
-        True,
-        "Histograms of episode rewards across all methods",
-        prepare_histogram,
-        "Count",
-        os.path.join(output, "running_histogram_episode_reward.png"),
-        xlabel_input="Reward",
     )
     plot_subplots(
         running_actions_count,
@@ -135,16 +117,6 @@ def make_all_plots(data_input: list, output: str, loss_steps_sampling: int):
         prepare_cumulative_action_count,
         "Cumulative action count",
         os.path.join(output, "running_cumulative_episode_actions_count.png"),
-        xlabel_input="No. of episodes",
-    )
-    plot_subplots(
-        running_step_count,
-        False,
-        "Changes of no. of steps per episode over no. of episodes \n for the policy-based and action critic methods",
-        prepare_histogram,
-        "No. of steps per episode",
-        os.path.join(output, "running_step_count.png"),
-        combinations=False,
         xlabel_input="No. of episodes",
     )
     plot_subplots(
@@ -199,7 +171,7 @@ class PrepareAllVisualizations(PrepareSimpleVisualizations):
             os.system("sudo chmod 777 " + output)
         input = load_pickle(self.input().path)
 
-        make_all_plots(input, output, self.loss_sampling_steps)
+        make_all_plots(input, output, self.moving_average_steps)
 
 
 class PrepareSampleTuning(PrepareSample):
@@ -292,4 +264,4 @@ class PrepareAllVisualizationsSample(PrepareSimpleVisualizations):
             os.system("sudo chmod 777 " + output)
         input = load_pickle(self.input().path)
 
-        make_all_plots(input, output, self.loss_sampling_steps)
+        make_all_plots(input, output, self.moving_average_steps)
